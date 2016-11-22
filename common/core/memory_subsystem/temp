@@ -1,0 +1,23 @@
+cache/cache.cc:   splitAddress(addr, tag, set_index);
+cache/cache.cc:   splitAddress(addr, tag, set_index);
+cache/cache.cc:   splitAddress(addr, tag, set_index, block_offset);
+cache/cache.cc:   splitAddress(addr, tag, set_index);
+cache/cache.cc:   splitAddress(addr, tag, set_index);
+cache/cache_base.cc:CacheBase::splitAddress(const IntPtr addr, IntPtr& tag, UInt32& set_index) const
+cache/cache_base.cc:CacheBase::splitAddress(const IntPtr addr, IntPtr& tag, UInt32& set_index,
+cache/cache_base.cc:   splitAddress(addr, tag, set_index);
+cache/cache_base.h:      void splitAddress(const IntPtr addr, IntPtr& tag, UInt32& set_index) const;
+cache/cache_base.h:      void splitAddress(const IntPtr addr, IntPtr& tag, UInt32& set_index, UInt32& block_offset) const;
+Binary file cache/cache_base.o matches
+Binary file cache/cache.o matches
+Binary file cache/.cache.cc.swp matches
+parametric_dram_directory_msi/cache_atd.cc:   m_cache_base.splitAddress(address, tag, set_index);
+Binary file parametric_dram_directory_msi/memory_manager.o matches
+Binary file parametric_dram_directory_msi/cache_atd.o matches
+pr_l1_pr_l2_dram_directory_msi/dram_directory_cache.cc:   splitAddress(address, tag, set_index);
+pr_l1_pr_l2_dram_directory_msi/dram_directory_cache.cc:   splitAddress(address, tag, set_index);
+pr_l1_pr_l2_dram_directory_msi/dram_directory_cache.cc:   splitAddress(replaced_address, tag, set_index);
+pr_l1_pr_l2_dram_directory_msi/dram_directory_cache.cc:DramDirectoryCache::splitAddress(IntPtr address, IntPtr& tag, UInt32& set_index)
+pr_l1_pr_l2_dram_directory_msi/dram_directory_cache.h:         void splitAddress(IntPtr address, IntPtr& tag, UInt32& set_index);
+Binary file pr_l1_pr_l2_dram_directory_msi/dram_directory_cntlr.o matches
+Binary file pr_l1_pr_l2_dram_directory_msi/dram_directory_cache.o matches

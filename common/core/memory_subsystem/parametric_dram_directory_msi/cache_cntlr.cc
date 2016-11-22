@@ -137,6 +137,7 @@ CacheCntlr::CacheCntlr(MemComponent::component_t mem_component,
    m_next_cache_cntlr(NULL),
    m_last_level(NULL),
    m_tag_directory_home_lookup(tag_directory_home_lookup),
+   m_swizzleSwitch(new Byte[SWIZZLE_SWITCH_X * SWIZZLE_SWITCH_Y]), // CAP: adding swizzle switch in ctrlr
    m_perfect(cache_params.perfect),
    m_passthrough(Sim()->getCfg()->getBoolArray("perf_model/" + cache_params.configName + "/passthrough", core_id)),
    m_coherent(cache_params.coherent),
@@ -278,6 +279,7 @@ CacheCntlr::~CacheCntlr()
    {
       delete m_master;
    }
+   delete m_swizzleSwitch;
    delete m_shmem_perf;
    if (m_shmem_perf_global)
       delete m_shmem_perf_global;
@@ -1353,6 +1355,80 @@ CacheCntlr::retrieveCacheBlock(IntPtr address, Byte* data_buf, ShmemPerfModel::T
    LOG_ASSERT_ERROR(cache_block_info != NULL, "Expected block to be there but it wasn't");
 }
 
+
+/*****************************************************************************
+ * CAP: Upate latency metrics
+ *****************************************************************************/
+void CacheCntlr::updateCAPLatency(SubsecondTime latency)
+{   
+   getShmemPerfModel()->incrElapsedTime(latency, ShmemPerfModel::_USER_THREAD);
+}
+
+/*****************************************************************************
+ * CAP: Program the swizzle switch for the current state with corresponding 
+ *      next_state vectors
+ *****************************************************************************/
+void CacheCntlr::updateSwizzleSwitch(UInt32 STEnum, Byte* nextStateInfo)
+{
+   UInt32 nextStateVecLength = SWIZZLE_SWITCH_Y; 
+   memcpy((m_swizzleSwitch+(nextStateVecLength*STEnum)), nextStateInfo, nextStateVecLength);
+}
+
+/*****************************************************************************
+ * CAP: Perform a swizle switch lookup using curr_state and output next_state vector
+ *
+ * Description:
+ * Reads the incoming bit stream comprising of current state STE bits.
+ * If any of the STE bits is set, the corresponding next state STE bits are read out 
+ * There is additional logic to account for multiple STEs in current state
+ * 
+ *****************************************************************************/
+void CacheCntlr::retrieveNextStateInfo(Byte* inDataBuf, Byte* outDataBuf)
+{
+   UInt32 currStateVecLength = SWIZZLE_SWITCH_X; 
+   UInt32 nextStateVecLength = SWIZZLE_SWITCH_Y; 
+
+   UInt32 i=0, j=0, k=0;
+   Byte* tempOutDataBuf = new Byte[nextStateVecLength];
+   Byte trueOutByte, tempOutByte;
+   bool activeStateFound = 0;
+
+
+   for (i=0; i<currStateVecLength; i++) {
+      Byte dataByte;  // temp var to store each byte from input currState vector
+      memcpy(&dataByte, inDataBuf+i, 1);
+
+      while (j<8) {
+         if ((dataByte>>j) & 0x1) {   // check if last bit is 1
+            int byteToReadFrom = nextStateVecLength*(8*i + j);  // skip every 128B chunk
+
+            memcpy(tempOutDataBuf, m_swizzleSwitch+byteToReadFrom, nextStateVecLength);  // swizzle switch look-up
+
+            if (activeStateFound) { // this means more than one active curr_state bit in input
+               while (k<nextStateVecLength)  {
+                  memcpy(&trueOutByte, outDataBuf+k, 1);
+                  memcpy(&tempOutByte, tempOutDataBuf+k, 1);
+                  trueOutByte = trueOutByte | tempOutByte;
+                  memcpy(outDataBuf+k, &trueOutByte, 1);
+                  ++k;
+               }
+               k = 0;
+            }
+
+            // copy into outDataBuf just during first hit to ensure that if another hit is found, outDataBuf does not have junk values
+            if (!activeStateFound)  
+               memcpy(outDataBuf, m_swizzleSwitch+byteToReadFrom, nextStateVecLength); 
+
+            activeStateFound = 1; // set flag to denote next_state found
+         }
+         ++j;
+      }
+      j = 0;
+   }
+
+   delete tempOutDataBuf;
+   LOG_ASSERT_ERROR(activeStateFound != 1, "No next_states were found for currently active state!");
+}
 
 /*****************************************************************************
  * cache block operations that update the previous level(s)

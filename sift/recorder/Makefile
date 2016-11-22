@@ -1,6 +1,7 @@
 # this gives us default build rules and dependency handling
 SIM_ROOT ?= $(CURDIR)/../..
-PIN_HOME ?= $(SIM_ROOT)/pin_kit
+#ezhil PIN_HOME ?= $(SIM_ROOT)/pin_kit
+PIN_HOME ?= $(SIM_ROOT)/../../PIN/pin-2.14-71313-gcc.4.4.7-linux
 
 # Note: Pin's makefile.config adds stuff to the `all' target which we don't want,
 #       so just use a different name here

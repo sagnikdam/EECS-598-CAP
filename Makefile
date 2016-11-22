@@ -6,6 +6,7 @@ STANDALONE=$(SIM_ROOT)/lib/sniper
 LIB_CARBON=$(SIM_ROOT)/lib/libcarbon_sim.a
 LIB_PIN_SIM=$(SIM_ROOT)/pin/../lib/pin_sim.so
 LIB_FOLLOW=$(SIM_ROOT)/pin/../lib/follow_execv.so
+
 LIB_SIFT=$(SIM_ROOT)/sift/libsift.a
 SIM_TARGETS=$(LIB_CARBON) $(LIB_SIFT) $(LIB_PIN_SIM) $(LIB_FOLLOW) $(STANDALONE)
 

@@ -81,6 +81,7 @@ class CacheBase
       // utilities
       void splitAddress(const IntPtr addr, IntPtr& tag, UInt32& set_index) const;
       void splitAddress(const IntPtr addr, IntPtr& tag, UInt32& set_index, UInt32& block_offset) const;
+      void splitAddress(const IntPtr addr, IntPtr& tag, UInt32& bank_index, UInt32& set_index, UInt32& block_offset) const;
       IntPtr tagToAddress(const IntPtr tag);
       String getName(void) { return m_name; }
 

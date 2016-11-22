@@ -3,6 +3,7 @@
 #include "log.h"
 #include "rng.h"
 #include "address_home_lookup.h"
+#include "math.h"
 
 CacheBase::CacheBase(
    String name, UInt32 num_sets, UInt32 associativity, UInt32 cache_block_size,
@@ -17,6 +18,7 @@ CacheBase::CacheBase(
    m_ahl(ahl)
 {
    m_log_blocksize = floorLog2(m_blocksize);
+   m_log_numBanks = floorLog2(m_numBanks);
 
    LOG_ASSERT_ERROR((m_num_sets == (1UL << floorLog2(m_num_sets))) || (hash != CacheBase::HASH_MASK),
       "Caches of non-power of 2 size need funky hash function");
@@ -40,6 +42,17 @@ CacheBase::parseAddressHash(String hash_name)
    else
       LOG_PRINT_ERROR("Invalid address hash function %s", hash_name.c_str());
 }
+
+
+// CAP: splitAddress overloading to return no. of banks
+void 
+CacheBase::splitAddress(const IntPtr addr, IntPtr& tag, UInt32& bank_index, UInt32& set_index, UInt32& block_offset) const
+{
+   splitAddress(addr, tag, set_index, block_offset);
+   bank_index = tag & (m_numBanks-1);
+   tag = tag >> m_log_numBanks;
+}
+
 
 void
 CacheBase::splitAddress(const IntPtr addr, IntPtr& tag, UInt32& set_index) const

@@ -42,6 +42,10 @@ class ShmemPerf;
 // Time between prefetches
 #define PREFETCH_INTERVAL SubsecondTime::NS(1)
 
+// CAP: Swizzle switch X (curr state) and Y (next state) dimensions (in Bytes)
+#define SWIZZLE_SWITCH_X 64
+#define SWIZZLE_SWITCH_Y 128
+
 namespace ParametricDramDirectoryMSI
 {
    class Transition
@@ -208,6 +212,9 @@ namespace ParametricDramDirectoryMSI
          CacheCntlr* m_last_level;
          AddressHomeLookup* m_tag_directory_home_lookup;
          std::unordered_map<IntPtr, MemComponent::component_t> m_shmem_req_source_map;
+         // CAP: define swizzle switch        
+         Byte* m_swizzleSwitch; 
+
          bool m_perfect;
          bool m_passthrough;
          bool m_coherent;
@@ -247,6 +254,10 @@ namespace ParametricDramDirectoryMSI
          #ifdef TRACK_LATENCY_BY_HITWHERE
          std::unordered_map<HitWhere::where_t, StatHist> lat_by_where;
          #endif
+
+         //CAP 
+         SubsecondTime cap_latency;
+   
 
          void updateCounters(Core::mem_op_t mem_op_type, IntPtr address, bool cache_hit, CacheState::cstate_t state, Prefetch::prefetch_type_t isPrefetch);
          void cleanupMshr();
@@ -345,6 +356,15 @@ namespace ParametricDramDirectoryMSI
          core_id_t getHome(IntPtr address) { return m_tag_directory_home_lookup->getHome(address); }
 
          CacheCntlr* lastLevelCache(void);
+
+         // CAP: Update latency figures
+         void updateCAPLatency(SubsecondTime latency);
+
+         // CAP: Program the swizzle switch
+         void updateSwizzleSwitch(UInt32 STEnum, Byte* nextStateInfo);
+
+         // CAP: Look up next state from current state using swizzle switch 
+         void retrieveNextStateInfo(Byte* inDataBuf, Byte* outDataBuf);
 
       public:
 
