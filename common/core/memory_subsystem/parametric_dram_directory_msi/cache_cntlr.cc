@@ -154,7 +154,8 @@ CacheCntlr::CacheCntlr(MemComponent::component_t mem_component,
    m_last_remote_hit_where(HitWhere::UNKNOWN),
    m_shmem_perf(new ShmemPerf()),
    m_shmem_perf_global(NULL),
-   m_shmem_perf_model(shmem_perf_model)
+   m_shmem_perf_model(shmem_perf_model),
+   m_logASCIISetIndex(8)  // CAP:
 {
    m_core_id_master = m_core_id - m_core_id % m_shared_cores;
    Sim()->getStatsManager()->logTopology(name, core_id, m_core_id_master);
@@ -1357,11 +1358,13 @@ CacheCntlr::retrieveCacheBlock(IntPtr address, Byte* data_buf, ShmemPerfModel::T
 
 
 /*****************************************************************************
- * CAP: Upate latency metrics
+ * CAP: Update latency metrics
  *****************************************************************************/
-void CacheCntlr::updateCAPLatency(SubsecondTime latency)
-{   
-   getShmemPerfModel()->incrElapsedTime(latency, ShmemPerfModel::_USER_THREAD);
+void CacheCntlr::updateCAPLatency()
+{  
+   SubsecondTime latency = SubsecondTime::Zero();
+   latency += m_writeback_time.getLatency();
+   getMemoryManager()->incrElapsedTime(latency, ShmemPerfModel::_USER_THREAD);
 }
 
 /*****************************************************************************
@@ -1429,6 +1432,54 @@ void CacheCntlr::retrieveNextStateInfo(Byte* inDataBuf, Byte* outDataBuf)
    delete tempOutDataBuf;
    LOG_ASSERT_ERROR(activeStateFound != 1, "No next_states were found for currently active state!");
 }
+
+/*****************************************************************************
+ * CAP: parent function which gets the input character, 
+ * accesses the cache subarrays and concatenates the curr_state vectors from 
+ * each subarray, performs a lookup in the swizzle switch and estimates 
+ * next_state vectors and writes back into the curr_state mask register
+ *****************************************************************************/
+void CacheCntlr::processPatternMatch(UInt32 inputChar)
+{
+   UInt32 subarrayIndexBits = 0, k=0;
+   UInt32 address;
+   IntPtr addr;
+   Byte* temp_data_buf = new Byte[m_cache_block_size];
+   Byte* data_buf = new Byte[NUM_SUBARRAYS*m_cache_block_size];
+   Byte* out_data_buf = new Byte[NUM_SUBARRAYS*m_cache_block_size];
+   Byte tempA_data_buf, tempB_data_buf;
+   UInt32 nextStateVecLength = SWIZZLE_SWITCH_Y;
+   
+   while(subarrayIndexBits<NUM_SUBARRAYS){
+      // encode the single input character into N addresses for lookup in N subarrays
+      address = (subarrayIndexBits<<(m_logASCIISetIndex+getCacheBlockSize())) | (inputChar<<getCacheBlockSize());
+      addr = (IntPtr)address;
+      accessCache(Core::READ, addr, 0, temp_data_buf, m_cache_block_size, 1);
+      memcpy((data_buf+(subarrayIndexBits*m_cache_block_size)), temp_data_buf, m_cache_block_size);
+      ++subarrayIndexBits;
+      updateCAPLatency();
+   }
+   
+   // Mask curr state vectors read from cache subarrays with the current state Mask
+   while (k<nextStateVecLength)  {
+      memcpy(&tempA_data_buf, data_buf+k, 1);
+      memcpy(&tempB_data_buf, m_currStateMask+k, 1);
+      tempA_data_buf = tempA_data_buf & tempB_data_buf;
+      memcpy(data_buf+k, &tempA_data_buf, 1);
+      ++k;
+   }
+
+   // Look up in the swizzle switch to get the next_state vector
+   retrieveNextStateInfo(data_buf, out_data_buf);
+  
+   // Update the mask register with next state bits 
+   k=0;
+   while (k<nextStateVecLength)  {
+      memcpy(m_currStateMask+k, out_data_buf+k, 1);
+      ++k;
+   }
+}
+
 
 /*****************************************************************************
  * cache block operations that update the previous level(s)

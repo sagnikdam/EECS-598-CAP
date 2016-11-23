@@ -46,6 +46,9 @@ class ShmemPerf;
 #define SWIZZLE_SWITCH_X 64
 #define SWIZZLE_SWITCH_Y 128
 
+// CAP: declare number of subarrays
+#define NUM_SUBARRAYS 4
+
 namespace ParametricDramDirectoryMSI
 {
    class Transition
@@ -166,11 +169,11 @@ namespace ParametricDramDirectoryMSI
          CacheDirectoryWaiterMap m_directory_waiters;
          IntPtr m_evicting_address;
          Byte* m_evicting_buf;
+         UInt32 m_log_blocksize;
 
          std::vector<ATD*> m_atds;
 
          std::vector<SetLock> m_setlocks;
-         UInt32 m_log_blocksize;
          UInt32 m_num_sets;
 
          std::deque<IntPtr> m_prefetch_list;
@@ -213,7 +216,10 @@ namespace ParametricDramDirectoryMSI
          AddressHomeLookup* m_tag_directory_home_lookup;
          std::unordered_map<IntPtr, MemComponent::component_t> m_shmem_req_source_map;
          // CAP: define swizzle switch        
-         Byte* m_swizzleSwitch; 
+         Byte* m_swizzleSwitch;
+         // CAP: current state mask register
+         Byte* m_currStateMask;
+         UInt32 m_logASCIISetIndex;         
 
          bool m_perfect;
          bool m_passthrough;
@@ -254,10 +260,6 @@ namespace ParametricDramDirectoryMSI
          #ifdef TRACK_LATENCY_BY_HITWHERE
          std::unordered_map<HitWhere::where_t, StatHist> lat_by_where;
          #endif
-
-         //CAP 
-         SubsecondTime cap_latency;
-   
 
          void updateCounters(Core::mem_op_t mem_op_type, IntPtr address, bool cache_hit, CacheState::cstate_t state, Prefetch::prefetch_type_t isPrefetch);
          void cleanupMshr();
@@ -358,13 +360,18 @@ namespace ParametricDramDirectoryMSI
          CacheCntlr* lastLevelCache(void);
 
          // CAP: Update latency figures
-         void updateCAPLatency(SubsecondTime latency);
+         void updateCAPLatency();
 
          // CAP: Program the swizzle switch
          void updateSwizzleSwitch(UInt32 STEnum, Byte* nextStateInfo);
 
          // CAP: Look up next state from current state using swizzle switch 
          void retrieveNextStateInfo(Byte* inDataBuf, Byte* outDataBuf);
+
+         // CAP: parent function which gets the input character, accesses the cache subarrays and concatenates the curr_state vectors from each,
+         // performs a lookup in the swizzle switch and estimates next_state vectors and writes back into the curr_state mask register
+         void processPatternMatch (UInt32 inputChar);
+
 
       public:
 
